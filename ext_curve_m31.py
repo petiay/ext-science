@@ -42,3 +42,85 @@ m31_list = [
 # "m31_e15_j004546.81+415431.7",
 ]
 
+file_path = "/Users/pyanchulova/Documents/extstar_data/"
+savefile_path = "/Users/pyanchulova/Documents/ext-science/figs/"
+folder = ""
+
+if not os.path.isdir(savefile_path + folder):
+    print("making new dir", (savefile_path + folder))
+    os.system("mkdir " + savefile_path + folder)
+
+# Karl-level STIS data location
+karl_data_path = "~/../../user/kgordon/Python_git/extstar_data/STIS_Data/"
+
+
+def main(modinfo, starname=m31_list[0]):
+    """
+    """
+
+    fstarname = f"{starname}.dat"
+    velocity = -109.3  # M31 radial velocity from NED
+    relband = "ACS_F475W"
+    relband_str = "$F475W$"
+    starstr = starname.split("m31_")[1].split("_")[0]
+    print(starname, starstr)
+
+    # Get reddened star data
+    reddened_star, band_names, data_names = get_red_star(fstarname, file_path)
+
+
+def get_red_star(starname=m31_list[0]):
+    """
+    """
+
+    fstarname = f"{starname}.dat"
+
+    # get the observed reddened star data
+    reddened_star = StarData(fstarname, path=f"{file_path}/DAT_files/")
+    band_names = reddened_star.data["BAND"].get_band_names()
+    data_names = reddened_star.data.keys()
+    print("band names", band_names)
+    print("data names", data_names)
+    print("starname", fstarname)
+
+    return reddened_star, band_names, data_names
+
+
+def set_weights(data_names, reddened_star):
+    """
+    """
+    # cropping info for weights
+    #  bad regions are defined as those where we know the models do not work
+    #  or the data is bad
+    # pnames = ["logT","logg","logZ","Av","Rv","C2","C3","C4","x0","gamma","HI_gal","HI_mw"]
+    ex_regions = [
+        [8.23 - 0.1, 8.23 + 0.1],  # geocoronal line
+        [8.7, 10.0],  # bad data from STIS
+        [3.55, 3.6],
+        [3.80, 3.90],
+        [4.15, 4.3],
+        [6.4, 6.6],
+        [7.1, 7.3],
+        [7.45, 7.55],
+        [7.65, 7.75],
+        [7.9, 7.95],
+        [8.05, 8.1],
+    ] / u.micron
+
+    weights = {}
+    for cspec in data_names:
+        weights[cspec] = np.full(len(reddened_star.data[cspec].fluxes), 0.0)
+        gvals = reddened_star.data[cspec].npts > 0
+        # Originally:
+        # weights[cspec][gvals] = 1.0 / reddened_star.data[cspec].uncs[gvals].value
+        # New:
+        weights[cspec][gvals] = 1.0 / reddened_star.data[cspec].uncs[gvals].value
+
+        x = 1.0 / reddened_star.data[cspec].waves
+        for cexreg in ex_regions:
+            weights[cspec][np.logical_and(x >= cexreg[0], x <= cexreg[1])] = 0.0
+
+    # make the photometric bands have higher weight
+    weights["BAND"] *= 10000.0
+    print("weight arrays set")
+    return weights
