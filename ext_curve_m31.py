@@ -86,6 +86,8 @@ def get_red_star(starname=m31_list[0]):
     return reddened_star, band_names, data_names
 
 
+def get_model_data()
+
 def set_weights(data_names, reddened_star):
     """
     """
